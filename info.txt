@@ -1,0 +1,436 @@
+System Architecture
+
+
+Client Layer
+ ├ Web (Next.js)
+ └ Mobile App (future)
+
+        |
+        v
+
+API Gateway
+Kong
+
+        |
+        v
+
+Core Microservices (Go)
+
+ ├ Auth Service (JWT)
+ ├ User Service
+ ├ Product Service
+ ├ Cart Service
+ ├ Order Service
+ ├ Payment Service
+ ├ Inventory Service
+ ├ Shipping Service
+ ├ Search Service
+ ├ Notification Service
+ ├ Review Service
+ └ Vendor Service
+
+        |
+        v
+
+Event Streaming
+Apache Kafka
+
+        |
+        v
+
+AI Services (Python)
+
+ ├ Recommendation Engine
+ ├ Smart Search Ranking
+ └ AI Chatbot
+
+        |
+        v
+
+Data Layer
+
+ ├ PostgreSQL (main database)
+ ├ Redis (cache + session)
+ ├ Elasticsearch (search)
+ └ MinIO (product images/files)
+
+        |
+        v
+
+Observability
+
+ ├ Elasticsearch (logs)
+ ├ Grafana (dashboard)
+ └ Prometheus (metrics)
+
+        |
+        v
+
+Infrastructure
+
+Docker containers
+
+
+
+You are a senior distributed-systems architect, cloud engineer, and staff-level backend developer.
+
+Your task is to generate a scalable, modular, production-ready microservices eCommerce platform similar in architecture to Amazon, but starting with an MVP and designed to expand gradually.
+
+The system must be built with a clean architecture and event-driven microservices design so that additional services can be added later without breaking the system.
+
+---
+
+## TECH STACK
+
+Frontend
+Next.js 14
+React
+TypeScript
+TailwindCSS
+TanStack React Query
+
+API Gateway (future ready)
+Kong API Gateway
+
+Backend Microservices
+Go (Golang)
+Gin framework
+
+AI Services (future)
+Python + FastAPI
+
+Authentication
+JWT (Access + Refresh tokens)
+
+Message Queue (future scaling)
+Apache Kafka
+
+Database
+PostgreSQL
+
+Cache
+Redis
+
+Search Engine (future phase)
+Elasticsearch
+
+Object Storage
+MinIO (S3 compatible)
+
+Containerization
+Docker + Docker Compose
+
+Observability (future)
+Prometheus
+Grafana
+Elasticsearch logs
+
+---
+
+## SYSTEM ARCHITECTURE
+
+Client Layer
+Next.js frontend
+
+API Layer
+REST APIs
+
+Microservices Layer
+Go services
+
+Event Layer
+Kafka events (future)
+
+Data Layer
+PostgreSQL
+Redis
+MinIO
+
+---
+
+## PHASED DEVELOPMENT STRATEGY
+
+The platform must be built in phases to avoid overengineering.
+
+---
+
+## PHASE 1 – CORE MVP
+
+Generate the following microservices:
+
+AUTH SERVICE
+Responsibilities
+User registration
+User login
+JWT access tokens
+Refresh tokens
+Password hashing with bcrypt
+Role system (admin, user)
+
+Endpoints
+POST /auth/register
+POST /auth/login
+POST /auth/refresh
+GET /auth/me
+
+Tables
+users
+roles
+
+PRODUCT SERVICE
+
+Responsibilities
+Product CRUD
+Categories
+Product images stored in MinIO
+
+Endpoints
+GET /products
+GET /products/:id
+POST /products
+PUT /products/:id
+DELETE /products/:id
+
+Tables
+products
+categories
+product_images
+
+CART SERVICE
+
+Responsibilities
+Add product to cart
+Remove product
+Update quantity
+Get cart
+
+Cart data stored in Redis for performance.
+
+Endpoints
+GET /cart
+POST /cart/add
+PUT /cart/update
+DELETE /cart/remove
+
+ORDER SERVICE
+
+Responsibilities
+Create order from cart
+Order status
+Order history
+
+Endpoints
+POST /orders
+GET /orders
+GET /orders/:id
+
+Tables
+orders
+order_items
+
+---
+
+## PHASE 2 – MARKETPLACE FEATURES
+
+Prepare architecture for additional services:
+
+Inventory Service
+Stock tracking
+Stock reservation
+Warehouse support
+
+Vendor Service
+Vendor registration
+Vendor product management
+
+Review Service
+Product ratings
+Customer reviews
+
+Payment Service
+Payment status
+Refund system
+
+---
+
+## PHASE 3 – PERFORMANCE & SCALE
+
+Add infrastructure compatibility for:
+
+Kong API Gateway
+Apache Kafka event streaming
+Elasticsearch search engine
+
+Events examples:
+
+OrderCreated
+PaymentCompleted
+InventoryReserved
+
+These events should be published to Kafka topics.
+
+---
+
+## PHASE 4 – AI SERVICES
+
+Future Python microservices:
+
+Recommendation Engine
+Product recommendations
+
+Search Ranking AI
+Improve search result ranking
+
+AI Chatbot
+Customer support automation
+
+---
+
+## FRONTEND REQUIREMENTS
+
+Generate a modern Next.js eCommerce frontend.
+
+Pages
+
+Home
+Product list
+Product details
+Cart
+Checkout
+Login
+Register
+Orders
+Admin dashboard (basic)
+
+Features
+
+JWT authentication
+Product browsing
+Add to cart
+Checkout flow
+API integration with Go services
+Responsive UI
+TailwindCSS styling
+
+Use React Query for API requests.
+
+---
+
+## FILE STORAGE
+
+Integrate MinIO for product images.
+
+Upload endpoint:
+/products/upload-image
+
+---
+
+## DATABASE DESIGN
+
+Use PostgreSQL.
+
+Core tables:
+
+users
+roles
+products
+categories
+product_images
+orders
+order_items
+
+---
+
+## PROJECT STRUCTURE
+
+Root structure:
+
+/platform
+/frontend
+/services
+/auth-service
+/product-service
+/cart-service
+/order-service
+/shared
+/utils
+/middlewares
+/infrastructure
+docker-compose.yml
+env configs
+
+Each Go service must follow clean architecture:
+
+/cmd
+/internal
+/api
+/config
+/models
+/repository
+/service
+/handler
+/routes
+
+---
+
+## INFRASTRUCTURE
+
+Generate Docker containers for:
+
+frontend
+auth-service
+product-service
+cart-service
+order-service
+postgres
+redis
+minio
+
+Provide a full docker-compose.yml to run the entire platform locally.
+
+---
+
+## SECURITY
+
+Use JWT middleware.
+Secure password hashing with bcrypt.
+Environment variables for secrets.
+
+---
+
+## OUTPUT REQUIREMENTS
+
+Generate:
+
+Complete codebase
+Folder structure
+Docker configuration
+Environment variables
+API documentation
+Database schema
+Setup instructions in README
+
+Ensure the architecture is scalable and production-ready.
+The generated code should follow clean architecture and microservices best practices.
+
+
+For run
+
+cd platform/infrastructure/docker
+docker-compose up -d
+docker-compose down
+
+for local run
+
+1. Start infrastructure manually:
+# PostgreSQL, Redis, MinIO
+docker run -p 5432:5432 -e POSTGRES_PASSWORD=postgres postgres:15-alpine
+docker run -p 6379:6379 redis:7-alpine
+docker run -p 9000:9000 -p 9001:9001 -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin minio/minio server /data --console-address ":9001"
+
+2. Build & run Go services:
+cd services/auth-service && go build -o auth-service ./cmd && ./auth-service
+# (repeat for other services)
+
+3. Run frontend:
+cd frontend && npm install && npm run dev

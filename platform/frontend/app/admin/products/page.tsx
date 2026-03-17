@@ -49,7 +49,10 @@ export default function AdminProductsPage() {
     return null
   }
 
-  if (!Cookies.get('access_token') || Cookies.get('role_id') !== '1') {
+  const roleId = Cookies.get('role_id')
+  const isAdmin = roleId === '1' || roleId === '3' || roleId === '4'
+  
+  if (!Cookies.get('access_token') || !isAdmin) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-8 text-center">
         <h1 className="text-2xl font-bold">Access Denied</h1>

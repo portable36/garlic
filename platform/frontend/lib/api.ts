@@ -1,10 +1,12 @@
 import axios from 'axios'
 import Cookies from 'js-cookie'
 
-const AUTH_URL = process.env.NEXT_PUBLIC_AUTH_URL || 'http://localhost:8081'
-const PRODUCTS_URL = process.env.NEXT_PUBLIC_PRODUCTS_URL || 'http://localhost:8082'
-const CART_URL = process.env.NEXT_PUBLIC_CART_URL || 'http://localhost:8083'
-const ORDERS_URL = process.env.NEXT_PUBLIC_ORDERS_URL || 'http://localhost:8084'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost'
+
+const AUTH_URL = process.env.NEXT_PUBLIC_AUTH_URL || `${API_URL}/auth`
+const PRODUCTS_URL = process.env.NEXT_PUBLIC_PRODUCTS_URL || `${API_URL}/products`
+const CART_URL = process.env.NEXT_PUBLIC_CART_URL || `${API_URL}/cart`
+const ORDERS_URL = process.env.NEXT_PUBLIC_ORDERS_URL || `${API_URL}/orders`
 
 const createApiClient = (baseURL: string) => {
   const client = axios.create({

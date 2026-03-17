@@ -20,8 +20,15 @@ export default function LoginPage() {
       const { access_token, refresh_token, user } = response.data
       Cookies.set('access_token', access_token, { expires: 1 })
       Cookies.set('refresh_token', refresh_token, { expires: 7 })
-      Cookies.set('role_id', user.role_id.toString(), { expires: 7 })
-      router.push('/')
+      
+      const roleId = Number(user?.role_id) || 1
+      Cookies.set('role_id', roleId.toString(), { expires: 7 })
+      
+      if (roleId === 1 || roleId === 3 || roleId === 4) {
+        router.push('/admin/dashboard')
+      } else {
+        router.push('/')
+      }
       router.refresh()
     },
     onError: () => {
