@@ -1,0 +1,143 @@
+_format_version: "3.0"
+
+services:
+  # Auth Service
+  - name: auth-service
+    url: http://auth-service:8081
+    routes:
+      - name: auth-route
+        paths:
+          - /auth
+        strip_path: true
+        plugins:
+          - name: cors
+            config:
+              origins:
+                - "*"
+              methods:
+                - GET
+                - POST
+                - PUT
+                - DELETE
+                - OPTIONS
+              headers:
+                - Accept
+                - Authorization
+                - Content-Type
+              credentials: true
+              max_age: 3600
+
+  # Admin Service
+  - name: admin-service
+    url: http://admin-service:8090
+    routes:
+      - name: admin-route
+        paths:
+          - /admin
+        strip_path: true
+        plugins:
+          - name: cors
+            config:
+              origins:
+                - "*"
+              methods:
+                - GET
+                - POST
+                - PUT
+                - DELETE
+                - OPTIONS
+              headers:
+                - Accept
+                - Authorization
+                - Content-Type
+              credentials: true
+              max_age: 3600
+
+  # Product Service
+  - name: product-service
+    url: http://product-service:8082
+    routes:
+      - name: product-route
+        paths:
+          - /products
+        strip_path: true
+        plugins:
+          - name: cors
+            config:
+              origins:
+                - "*"
+              methods:
+                - GET
+                - POST
+                - PUT
+                - DELETE
+                - OPTIONS
+              headers:
+                - Accept
+                - Authorization
+                - Content-Type
+              credentials: true
+              max_age: 3600
+
+  # Cart Service
+  - name: cart-service
+    url: http://cart-service:8083
+    routes:
+      - name: cart-route
+        paths:
+          - /cart
+        strip_path: true
+        plugins:
+          - name: cors
+            config:
+              origins:
+                - "*"
+              methods:
+                - GET
+                - POST
+                - PUT
+                - DELETE
+                - OPTIONS
+              headers:
+                - Accept
+                - Authorization
+                - Content-Type
+              credentials: true
+              max_age: 3600
+
+  # Order Service
+  - name: order-service
+    url: http://order-service:8084
+    routes:
+      - name: order-route
+        paths:
+          - /orders
+        strip_path: true
+        plugins:
+          - name: cors
+            config:
+              origins:
+                - "*"
+              methods:
+                - GET
+                - POST
+                - PUT
+                - DELETE
+                - OPTIONS
+              headers:
+                - Accept
+                - Authorization
+                - Content-Type
+              credentials: true
+              max_age: 3600
+
+# Global plugins
+plugins:
+  # Rate limiting (can be overridden per service)
+  - name: rate-limiting
+    config:
+      minute: 100
+      hour: 1000
+      policy: local
+      fault_tolerant: true
+      hide_client_headers: false
