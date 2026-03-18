@@ -2,8 +2,18 @@
 
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { motion, AnimatePresence } from 'framer-motion'
+import { 
+  FolderTree, 
+  Plus, 
+  Pencil, 
+  Trash2, 
+  X,
+  ChevronRight,
+  Loader2
+} from 'lucide-react'
 import Cookies from 'js-cookie'
-import { productsAPI } from '@/lib/api'
+import { cn } from '@/lib/utils'
 
 interface Category {
   id: string
@@ -137,30 +147,39 @@ export default function CategoriesPage() {
   if (isLoading) {
     return (
       <div className="flex justify-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     )
   }
 
   const renderCategoryTree = (cats: Category[], level = 0) => {
-    return cats.map((category) => (
-      <div key={category.id}>
+    return cats.map((category, index) => (
+      <motion.div
+        key={category.id}
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: index * 0.05 }}
+      >
         <div className="flex items-center justify-between py-3 px-4 hover:bg-gray-50 border-b">
           <div className="flex items-center">
-            <span style={{ marginLeft: level * 20 }} className="text-gray-700">
-              {level > 0 && '└─ '}
+            <FolderTree 
+              className={cn(
+                "w-4 h-4 mr-2", 
+                level === 0 ? "text-primary" : "text-gray-400"
+              )} 
+            />
+            <span style={{ marginLeft: level * 20 }} className="text-gray-700 font-medium">
+              {level > 0 && <ChevronRight className="w-3 h-3 inline mr-1" />}
               {category.name}
             </span>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => openEditModal(category)}
-              className="text-blue-600 hover:text-blue-700"
+              className="p-2 text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
               title="Edit"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
+              <Pencil className="w-4 h-4" />
             </button>
             <button
               onClick={() => {
@@ -168,40 +187,45 @@ export default function CategoriesPage() {
                   deleteMutation.mutate(category.id)
                 }
               }}
-              className="text-red-600 hover:text-red-700"
+              className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors"
               title="Delete"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
+              <Trash2 className="w-4 h-4" />
             </button>
           </div>
         </div>
         {category.children?.length > 0 && renderCategoryTree(category.children, level + 1)}
-      </div>
+      </motion.div>
     ))
   }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Categories</h1>
-        <button
+        <div className="flex items-center gap-3">
+          <FolderTree className="w-8 h-8 text-primary" />
+          <h1 className="text-3xl font-bold text-gray-900">Categories</h1>
+        </div>
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
           onClick={() => {
             setEditingCategory(null)
             setFormData({ name: '', description: '', parent_id: '' })
             setIsModalOpen(true)
           }}
-          className="bg-primary text-white px-4 py-2 rounded-md hover:bg-primary-dark"
+          className="flex items-center gap-2 bg-primary text-white px-4 py-2 rounded-md hover:bg-primary-dark"
         >
+          <Plus className="w-4 h-4" />
           Add Category
-        </button>
+        </motion.button>
       </div>
 
       <div className="bg-white shadow-sm rounded-lg overflow-hidden">
         {categories.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">
-            No categories found. Add your first category!
+          <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+            <FolderTree className="w-12 h-12 mb-4 text-gray-300" />
+            <p>No categories found. Add your first category!</p>
           </div>
         ) : (
           renderCategoryTree(categories)
@@ -209,77 +233,101 @@ export default function CategoriesPage() {
       </div>
 
       {/* Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">
-              {editingCategory ? 'Edit Category' : 'Add Category'}
-            </h2>
-            <form onSubmit={handleSubmit}>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                />
-              </div>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Description
-                </label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  rows={3}
-                />
-              </div>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Parent Category
-                </label>
-                <select
-                  value={formData.parent_id}
-                  onChange={(e) => setFormData({ ...formData, parent_id: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                >
-                  <option value="">None (Top Level)</option>
-                  {allCategories
-                    .filter((c) => c.id !== editingCategory?.id)
-                    .map((cat) => (
-                      <option key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </option>
-                    ))}
-                </select>
-              </div>
-              <div className="flex justify-end gap-2">
+      <AnimatePresence>
+        {isModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+            onClick={() => setIsModalOpen(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              transition={{ type: "spring", duration: 0.3 }}
+              className="bg-white rounded-lg p-6 w-full max-w-md"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold">
+                  {editingCategory ? 'Edit Category' : 'Add Category'}
+                </h2>
                 <button
-                  type="button"
-                  onClick={() => {
-                    setIsModalOpen(false)
-                    setEditingCategory(null)
-                  }}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                  onClick={() => setIsModalOpen(false)}
+                  className="p-1 hover:bg-gray-100 rounded-md"
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark"
-                >
-                  {editingCategory ? 'Update' : 'Create'}
+                  <X className="w-5 h-5" />
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+              <form onSubmit={handleSubmit}>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                    placeholder="Enter category name"
+                  />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Description
+                  </label>
+                  <textarea
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                    rows={3}
+                    placeholder="Enter category description"
+                  />
+                </div>
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Parent Category
+                  </label>
+                  <select
+                    value={formData.parent_id}
+                    onChange={(e) => setFormData({ ...formData, parent_id: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value="">None (Top Level)</option>
+                    {allCategories
+                      .filter((c) => c.id !== editingCategory?.id)
+                      .map((cat) => (
+                        <option key={cat.id} value={cat.id}>
+                          {cat.name}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    type="submit"
+                    className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark"
+                  >
+                    {editingCategory ? 'Update' : 'Create'}
+                  </motion.button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
