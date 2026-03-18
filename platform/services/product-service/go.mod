@@ -9,4 +9,6 @@ require (
 	github.com/jmoiron/sqlx v1.3.5
 	github.com/lib/pq v1.10.9
 	github.com/minio/minio-go/v7 v7.0.69
+	gorm.io/driver/postgres v1.5.4
+	gorm.io/gorm v1.25.5
 )

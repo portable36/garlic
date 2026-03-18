@@ -18,6 +18,10 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/boombuler/barcode/qr"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
+)
 )
 
 type Config struct {
@@ -198,6 +202,30 @@ type Category struct {
 	Description string    `db:"description" json:"description,omitempty"`
 	ParentID    *uuid.UUID `db:"parent_id" json:"parent_id,omitempty"`
 	CreatedAt   time.Time `db:"created_at" json:"created_at"`
+}
+
+type GORMCategory struct {
+	ID          uuid.UUID  `gorm:"type:uuid;primaryKey" json:"id"`
+	Name        string     `gorm:"type:varchar(255);not null" json:"name"`
+	Description string     `gorm:"type:text" json:"description,omitempty"`
+	ParentID    *uuid.UUID `gorm:"type:uuid" json:"parent_id,omitempty"`
+	Parent      *GORMCategory `gorm:"foreignKey:ParentID" json:"-"`
+	Children    []GORMCategory `gorm:"foreignKey:ParentID" json:"children,omitempty"`
+	SortOrder   int        `gorm:"default:0" json:"sort_order"`
+	CreatedAt   time.Time  `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt   time.Time  `gorm:"autoUpdateTime" json:"updated_at"`
+}
+
+func (GORMCategory) TableName() string {
+	return "categories"
+}
+
+type CategoryTreeItem struct {
+	ID          uuid.UUID        `json:"id"`
+	Name        string           `json:"name"`
+	Description string            `json:"description,omitempty"`
+	ParentID    *uuid.UUID       `json:"parent_id,omitempty"`
+	Children    []CategoryTreeItem `json:"children,omitempty"`
 }
 
 // ============== REQUEST MODELS ==============
@@ -822,6 +850,134 @@ func listCategoriesHandler(db *sqlx.DB) gin.HandlerFunc {
 	}
 }
 
+func listCategoriesTreeHandler(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var categories []GORMCategory
+		if err := db.Preload("Children").Where("parent_id IS NULL").Order("sort_order, name").Find(&categories).Error; err != nil {
+			c.JSON(500, gin.H{"error": "Failed to fetch categories"})
+			return
+		}
+
+		tree := buildCategoryTree(categories)
+		c.JSON(200, gin.H{"categories": tree})
+	}
+}
+
+func buildCategoryTree(categories []GORMCategory) []CategoryTreeItem {
+	var result []CategoryTreeItem
+	for _, cat := range categories {
+		item := CategoryTreeItem{
+			ID:          cat.ID,
+			Name:        cat.Name,
+			Description: cat.Description,
+			ParentID:    cat.ParentID,
+			Children:    buildCategoryTree(cat.Children),
+		}
+		result = append(result, item)
+	}
+	return result
+}
+
+func createCategoryHandler(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req struct {
+			Name        string     `json:"name" binding:"required"`
+			Description string     `json:"description"`
+			ParentID    *uuid.UUID `json:"parent_id"`
+			SortOrder   int        `json:"sort_order"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(400, gin.H{"error": err.Error()})
+			return
+		}
+
+		category := GORMCategory{
+			ID:          uuid.New(),
+			Name:        req.Name,
+			Description: req.Description,
+			ParentID:    req.ParentID,
+			SortOrder:   req.SortOrder,
+		}
+
+		if err := db.Create(&category).Error; err != nil {
+			c.JSON(500, gin.H{"error": "Failed to create category"})
+			return
+		}
+
+		c.JSON(201, gin.H{"category": category})
+	}
+}
+
+func updateCategoryHandler(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id, err := uuid.Parse(c.Param("id"))
+		if err != nil {
+			c.JSON(400, gin.H{"error": "Invalid category ID"})
+			return
+		}
+
+		var req struct {
+			Name        string     `json:"name"`
+			Description string     `json:"description"`
+			ParentID    *uuid.UUID `json:"parent_id"`
+			SortOrder   int        `json:"sort_order"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(400, gin.H{"error": err.Error()})
+			return
+		}
+
+		var category GORMCategory
+		if err := db.First(&category, "id = ?", id).Error; err != nil {
+			c.JSON(404, gin.H{"error": "Category not found"})
+			return
+		}
+
+		if req.Name != "" {
+			category.Name = req.Name
+		}
+		if req.Description != "" {
+			category.Description = req.Description
+		}
+		category.ParentID = req.ParentID
+		if req.SortOrder > 0 {
+			category.SortOrder = req.SortOrder
+		}
+
+		if err := db.Save(&category).Error; err != nil {
+			c.JSON(500, gin.H{"error": "Failed to update category"})
+			return
+		}
+
+		c.JSON(200, gin.H{"category": category})
+	}
+}
+
+func deleteCategoryHandler(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id, err := uuid.Parse(c.Param("id"))
+		if err != nil {
+			c.JSON(400, gin.H{"error": "Invalid category ID"})
+			return
+		}
+
+		// Check if category has children
+		var count int64
+		db.Model(&GORMCategory{}).Where("parent_id = ?", id).Count(&count)
+		if count > 0 {
+			c.JSON(400, gin.H{"error": "Cannot delete category with subcategories"})
+			return
+		}
+
+		if err := db.Delete(&GORMCategory{}, "id = ?", id).Error; err != nil {
+			c.JSON(500, gin.H{"error": "Failed to delete category"})
+			return
+		}
+
+		c.JSON(200, gin.H{"message": "Category deleted successfully"})
+	}
+}
+
 func uploadImageHandler(db *sqlx.DB, minioClient *minio.Client, bucketName string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		productID, err := uuid.Parse(c.Param("id"))
@@ -926,6 +1082,19 @@ func main() {
 	} else {
 		defer adminDB.Close()
 	}
+
+	// Connect to database with GORM for categories
+	gormDB, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Info),
+	})
+	if err != nil {
+		log.Fatalf("Failed to connect to GORM database: %v", err)
+	}
+	sqlDB, _ := gormDB.DB()
+	defer sqlDB.Close()
+
+	// Auto migrate categories
+	gormDB.AutoMigrate(&GORMCategory{})
 	
 	// Load product settings
 	globalProductSettings = LoadProductSettings(adminDB)
@@ -962,6 +1131,7 @@ func main() {
 	r.GET("/products", listProductsHandler(db))
 	r.GET("/products/:id", getProductHandler(db))
 	r.GET("/products/categories", listCategoriesHandler(db))
+	r.GET("/products/categories/tree", listCategoriesTreeHandler(gormDB))
 	
 	// Admin endpoints
 	admin := r.Group("/products")
@@ -982,6 +1152,11 @@ func main() {
 		// SKU/Barcode generation
 		admin.POST("/generate-sku", generateSKUHandler(db))
 		admin.POST("/generate-barcode", generateBarcodeHandler(db))
+
+		// Categories (GORM)
+		admin.POST("/categories", createCategoryHandler(gormDB))
+		admin.PUT("/categories/:id", updateCategoryHandler(gormDB))
+		admin.DELETE("/categories/:id", deleteCategoryHandler(gormDB))
 	}
 	
 	addr := fmt.Sprintf(":%s", cfg.Server.Port)
