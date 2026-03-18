@@ -89,16 +89,6 @@ func main() {
 		}
 	}
 
-	r.GET("/admin/validate", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"user": gin.H{
-				"id":    "test",
-				"email": "admin@test.com",
-			},
-			"permissions": []string{},
-		})
-	})
-
 	log.Printf("Admin service starting on :%s", cfg.Server.Port)
 	log.Fatal(r.Run(":" + cfg.Server.Port))
 }

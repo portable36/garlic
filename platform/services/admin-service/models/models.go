@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 type Permission struct {

@@ -14,7 +14,7 @@ func ListSettingsHandler(db *sqlx.DB) gin.HandlerFunc {
 		group := c.Query("group")
 
 		var settings []models.Setting
-		query := "SELECT id, setting_key, setting_value, setting_type, setting_group, is_public, created_at, updated_at FROM admin_db.settings"
+		query := "SELECT id, setting_key, setting_value, setting_type, setting_group, is_public, created_at, updated_at FROM settings"
 		args := []interface{}{}
 
 		if group != "" {
@@ -26,7 +26,7 @@ func ListSettingsHandler(db *sqlx.DB) gin.HandlerFunc {
 
 		err := db.Select(&settings, query, args...)
 		if err != nil {
-			c.JSON(500, gin.H{"error": "Failed to fetch settings"})
+			c.JSON(500, gin.H{"error": "Failed to fetch settings", "details": err.Error()})
 			return
 		}
 
@@ -50,7 +50,7 @@ func GetSettingHandler(db *sqlx.DB) gin.HandlerFunc {
 		var setting models.Setting
 		err := db.Get(&setting, `
 			SELECT id, setting_key, setting_value, setting_type, setting_group, is_public, created_at, updated_at
-			FROM admin_db.settings WHERE setting_key = $1
+			FROM settings WHERE setting_key = $1
 		`, key)
 		if err != nil {
 			c.JSON(404, gin.H{"error": "Setting not found"})
@@ -84,7 +84,7 @@ func UpdateSettingHandler(db *sqlx.DB) gin.HandlerFunc {
 		}
 
 		_, err := db.Exec(`
-			INSERT INTO admin_db.settings (setting_key, setting_value, setting_type, updated_at)
+			INSERT INTO settings (setting_key, setting_value, setting_type, updated_at)
 			VALUES ($1, $2, $3, $4)
 			ON CONFLICT (setting_key) DO UPDATE SET setting_value = $2, setting_type = COALESCE($3, settings.setting_type), updated_at = $4
 		`, req.Key, req.Value, settingType, time.Now())

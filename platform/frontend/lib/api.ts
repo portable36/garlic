@@ -4,7 +4,8 @@ import Cookies from 'js-cookie'
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost'
 
 const AUTH_URL = process.env.NEXT_PUBLIC_AUTH_URL || `${API_URL}/auth`
-const PRODUCTS_URL = process.env.NEXT_PUBLIC_PRODUCTS_URL || `${API_URL}/products`
+const ADMIN_URL = process.env.NEXT_PUBLIC_ADMIN_URL || `${API_URL}/admin`
+const PRODUCTS_URL = process.env.NEXT_PUBLIC_PRODUCTS_URL || `${API_URL}/api`
 const CART_URL = process.env.NEXT_PUBLIC_CART_URL || `${API_URL}/cart`
 const ORDERS_URL = process.env.NEXT_PUBLIC_ORDERS_URL || `${API_URL}/orders`
 
@@ -28,6 +29,7 @@ const createApiClient = (baseURL: string) => {
 }
 
 const authApi = createApiClient(AUTH_URL)
+const adminApi = createApiClient(ADMIN_URL)
 const productsApi = createApiClient(PRODUCTS_URL)
 const cartApi = createApiClient(CART_URL)
 const ordersApi = createApiClient(ORDERS_URL)
@@ -50,10 +52,24 @@ export const productsAPI = {
   update: (id: string, data: any) => productsApi.put(`/products/${id}`, data),
   delete: (id: string) => productsApi.delete(`/products/${id}`),
   uploadImage: (id: string, formData: FormData) =>
-    productsApi.post(`/products/${id}/upload-image`, formData, {
+    productsApi.post(`/products/${id}/images`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }),
   getCategories: () => productsApi.get('/products/categories'),
+  
+  // Variations (separate endpoints)
+  addVariation: (productId: string, data: any) =>
+    productsApi.post(`/products/${productId}/variations`, data),
+  updateVariation: (productId: string, variationId: string, data: any) =>
+    productsApi.put(`/products/${productId}/variations/${variationId}`, data),
+  deleteVariation: (productId: string, variationId: string) =>
+    productsApi.delete(`/products/${productId}/variations/${variationId}`),
+  
+  // SKU/Barcode generation
+  generateSKU: (data: { prefix?: string; suffix?: string; strategy?: string; category_id?: string }) =>
+    productsApi.post('/products/generate-sku', data),
+  generateBarcode: (data: { prefix?: string; suffix?: string; format?: string }) =>
+    productsApi.post('/products/generate-barcode', data),
 }
 
 export const cartAPI = {
@@ -73,4 +89,15 @@ export const ordersAPI = {
   get: (id: string) => ordersApi.get(`/orders/${id}`),
 }
 
-export default { authAPI, productsAPI, cartAPI, ordersAPI }
+export const settingsAPI = {
+  list: (group?: string) => 
+    adminApi.get('/settings', { params: { group } }),
+  get: (key: string) => 
+    adminApi.get(`/settings/${key}`),
+  update: (key: string, value: string, type?: string) =>
+    adminApi.put('/settings', { key, value, type }),
+  updateBatch: (settings: Record<string, string>) =>
+    adminApi.put('/settings/batch', { settings }),
+}
+
+export default { authAPI, productsAPI, cartAPI, ordersAPI, settingsAPI }

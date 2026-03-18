@@ -8,6 +8,11 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+type Claims struct {
+	RoleID float64 `json:"role_id"`
+	jwt.RegisteredClaims
+}
+
 func AdminAuthMiddleware(secret string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
@@ -18,7 +23,7 @@ func AdminAuthMiddleware(secret string) gin.HandlerFunc {
 		}
 
 		tokenString := authHeader[7:]
-		claims := &jwt.RegisteredClaims{}
+		claims := &Claims{}
 
 		token, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (interface{}, error) {
 			return []byte(secret), nil
@@ -35,10 +40,7 @@ func AdminAuthMiddleware(secret string) gin.HandlerFunc {
 		email := claims.Issuer
 
 		// Get role from custom claims if available
-		roleID := 0
-		if roleClaim, ok := claims["role_id"].(float64); ok {
-			roleID = int(roleClaim)
-		}
+		roleID := int(claims.RoleID)
 
 		c.Set("user_id", userID)
 		c.Set("email", email)

@@ -61,6 +61,7 @@ services:
       - "80:80"
     volumes:
       - ../nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ../nginx/conf.d:/etc/nginx/conf.d:ro
     depends_on:
       - auth-service
       - product-service
@@ -94,7 +95,10 @@ services:
       - ecommerce-network
 
   admin-service:
-    image: docker-admin-service:latest
+    build:
+      context: ../../services/admin-service
+      dockerfile: Dockerfile
+    image: admin-service:latest
     container_name: admin-service
     environment:
       PORT: 8090

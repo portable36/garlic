@@ -2,8 +2,14 @@ FROM golang:1.21 AS builder
 
 WORKDIR /app
 
-ENV GOPROXY=https://proxy.golang.org,direct
+ENV GOPROXY=https://goproxy.cn,https://goproxy.io,direct
 ENV GOSUMDB=off
+ENV GIT_TERMINAL_PROMPT=0
+ENV GODEBUG=http2client=0
+
+RUN git config --global --add url."https://".insteadOf git:// && \
+    git config --global --add url."https://github.com/".insteadOf "git@github.com:" && \
+    git config --global --add url."https://".insteadOf "git://"
 
 COPY . .
 

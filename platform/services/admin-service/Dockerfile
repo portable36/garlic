@@ -1,15 +1,20 @@
-FROM golang:1.24-alpine AS builder
+FROM golang:1.21-alpine AS builder
 
 WORKDIR /app
 
 RUN apk add --no-cache git
 
-ENV GOPROXY=direct
-ENV GOSUMDB=off
+ENV GOPROXY=https://goproxy.cn,https://goproxy.io,direct
+ENV GOSUMDB=sum.golang.org
+ENV GIT_TERMINAL_PROMPT=0
+ENV GODEBUG=http2client=0
+ENV GOTOOLCHAIN=auto
+
+RUN git config --global --add url."https://".insteadOf git://
 
 COPY go.mod ./
 
-RUN go mod download -x
+RUN go mod download
 
 COPY . .
 

@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -217,7 +216,7 @@ func UnbanUserHandler(db *sqlx.DB) gin.HandlerFunc {
 		userID := c.Param("id")
 
 		currentUserID := c.GetString("user_id")
-		currentUserUUID, _ := uuid.Parse(currentUserID)
+		_ = currentUserID
 		userUUID, _ := uuid.Parse(userID)
 
 		_, err := db.Exec("DELETE FROM admin_db.user_bans WHERE user_id = $1", userUUID)
