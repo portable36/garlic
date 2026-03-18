@@ -194,7 +194,7 @@ export default function CategoriesPage() {
             </button>
           </div>
         </div>
-        {category.children?.length > 0 && renderCategoryTree(category.children, level + 1)}
+        {category.children && category.children.length > 0 && renderCategoryTree(category.children, level + 1)}
       </motion.div>
     ))
   }
