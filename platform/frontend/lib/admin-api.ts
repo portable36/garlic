@@ -4,7 +4,7 @@ import Cookies from "js-cookie"
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost"
 
 const api = axios.create({
-  baseURL: `${API_URL}/admin`,
+  baseURL: `${API_URL}`,
   headers: {
     "Content-Type": "application/json",
   },
@@ -32,42 +32,42 @@ api.interceptors.response.use(
 
 export const adminAPI = {
   // Auth
-  validate: () => api.get("/validate"),
+  validate: () => api.get("/admin/validate"),
 
   // Users
   getUsers: (params?: { page?: number; limit?: number; search?: string }) =>
-    api.get("/users", { params }),
-  getUser: (id: string) => api.get(`/users/${id}`),
+    api.get("/admin/users", { params }),
+  getUser: (id: string) => api.get(`/admin/users/${id}`),
   assignRole: (id: string, role_id: number) =>
-    api.put(`/users/${id}/role`, { role_id }),
+    api.put(`/admin/users/${id}/role`, { role_id }),
   banUser: (id: string, reason: string) =>
-    api.put(`/users/${id}/ban`, { reason }),
-  unbanUser: (id: string) => api.put(`/users/${id}/unban`),
+    api.put(`/admin/users/${id}/ban`, { reason }),
+  unbanUser: (id: string) => api.put(`/admin/users/${id}/unban`),
 
   // Roles
-  getRoles: () => api.get("/roles"),
-  getRole: (id: number) => api.get(`/roles/${id}`),
+  getRoles: () => api.get("/admin/roles"),
+  getRole: (id: number) => api.get(`/admin/roles/${id}`),
   createRole: (data: { name: string; description?: string }) =>
-    api.post("/roles", data),
+    api.post("/admin/roles", data),
   updateRolePermissions: (id: number, permissions: number[]) =>
-    api.put(`/roles/${id}/permissions`, { permissions }),
-  deleteRole: (id: number) => api.delete(`/roles/${id}`),
+    api.put(`/admin/roles/${id}/permissions`, { permissions }),
+  deleteRole: (id: number) => api.delete(`/admin/roles/${id}`),
 
   // Permissions
-  getPermissions: () => api.get("/permissions"),
+  getPermissions: () => api.get("/admin/permissions"),
 
   // Settings
   getSettings: (group?: string) =>
-    api.get("/settings", { params: { group } }),
-  getSetting: (key: string) => api.get(`/settings/${key}`),
+    api.get("/admin/settings", { params: { group } }),
+  getSetting: (key: string) => api.get(`/admin/settings/${key}`),
   updateSetting: (key: string, value: string, type?: string) =>
-    api.put("/settings", { key, value, type }),
+    api.put("/admin/settings", { key, value, type }),
   updateSettings: (settings: Record<string, string>) =>
-    api.put("/settings/batch", { settings }),
+    api.put("/admin/settings/batch", { settings }),
 
   // Analytics
   getAnalytics: (period?: number) =>
-    api.get("/analytics", { params: { period } }),
+    api.get("/admin/analytics", { params: { period } }),
 
   // Audit Logs
   getAuditLogs: (params?: {
@@ -75,19 +75,19 @@ export const adminAPI = {
     limit?: number
     user_id?: string
     action?: string
-  }) => api.get("/audit-logs", { params }),
+  }) => api.get("/admin/audit-logs", { params }),
 
   // Vendors
   getVendors: (status?: string) =>
-    api.get("/vendors", { params: { status } }),
-  approveVendor: (id: string) => api.put(`/vendors/${id}/approve`),
-  rejectVendor: (id: string) => api.put(`/vendors/${id}/reject`),
+    api.get("/admin/vendors", { params: { status } }),
+  approveVendor: (id: string) => api.put(`/admin/vendors/${id}/approve`),
+  rejectVendor: (id: string) => api.put(`/admin/vendors/${id}/reject`),
 
   // Reviews
   getReviews: (status?: string) =>
-    api.get("/reviews", { params: { status } }),
-  approveReview: (id: string) => api.put(`/reviews/${id}/approve`),
-  rejectReview: (id: string) => api.put(`/reviews/${id}/reject`),
+    api.get("/admin/reviews", { params: { status } }),
+  approveReview: (id: string) => api.put(`/admin/reviews/${id}/approve`),
+  rejectReview: (id: string) => api.put(`/admin/reviews/${id}/reject`),
 }
 
 export default api

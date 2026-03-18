@@ -3,11 +3,11 @@ import Cookies from 'js-cookie'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost'
 
-const AUTH_URL = process.env.NEXT_PUBLIC_AUTH_URL || `${API_URL}/auth`
-const ADMIN_URL = process.env.NEXT_PUBLIC_ADMIN_URL || `${API_URL}/admin`
-const PRODUCTS_URL = process.env.NEXT_PUBLIC_PRODUCTS_URL || `${API_URL}/api`
-const CART_URL = process.env.NEXT_PUBLIC_CART_URL || `${API_URL}/cart`
-const ORDERS_URL = process.env.NEXT_PUBLIC_ORDERS_URL || `${API_URL}/orders`
+const AUTH_URL = process.env.NEXT_PUBLIC_AUTH_URL || `${API_URL}`
+const ADMIN_URL = process.env.NEXT_PUBLIC_ADMIN_URL || `${API_URL}`
+const PRODUCTS_URL = process.env.NEXT_PUBLIC_PRODUCTS_URL || `${API_URL}`
+const CART_URL = process.env.NEXT_PUBLIC_CART_URL || `${API_URL}`
+const ORDERS_URL = process.env.NEXT_PUBLIC_ORDERS_URL || `${API_URL}`
 
 const createApiClient = (baseURL: string) => {
   const client = axios.create({
@@ -35,7 +35,7 @@ const cartApi = createApiClient(CART_URL)
 const ordersApi = createApiClient(ORDERS_URL)
 
 export const authAPI = {
-  register: (data: { email: string; password: string }) =>
+  register: (data: { email: string; password: string; name?: string }) =>
     authApi.post('/auth/register', data),
   login: (data: { email: string; password: string }) =>
     authApi.post('/auth/login', data),
@@ -46,30 +46,30 @@ export const authAPI = {
 
 export const productsAPI = {
   list: (params?: { page?: number; page_size?: number }) =>
-    productsApi.get('/products', { params }),
-  get: (id: string) => productsApi.get(`/products/${id}`),
-  create: (data: any) => productsApi.post('/products', data),
-  update: (id: string, data: any) => productsApi.put(`/products/${id}`, data),
-  delete: (id: string) => productsApi.delete(`/products/${id}`),
+    productsApi.get('/api/products', { params }),
+  get: (id: string) => productsApi.get(`/api/products/${id}`),
+  create: (data: any) => productsApi.post('/api/products', data),
+  update: (id: string, data: any) => productsApi.put(`/api/products/${id}`, data),
+  delete: (id: string) => productsApi.delete(`/api/products/${id}`),
   uploadImage: (id: string, formData: FormData) =>
-    productsApi.post(`/products/${id}/images`, formData, {
+    productsApi.post(`/api/products/${id}/images`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }),
-  getCategories: () => productsApi.get('/products/categories'),
+  getCategories: () => productsApi.get('/api/products/categories'),
   
   // Variations (separate endpoints)
   addVariation: (productId: string, data: any) =>
-    productsApi.post(`/products/${productId}/variations`, data),
+    productsApi.post(`/api/products/${productId}/variations`, data),
   updateVariation: (productId: string, variationId: string, data: any) =>
-    productsApi.put(`/products/${productId}/variations/${variationId}`, data),
+    productsApi.put(`/api/products/${productId}/variations/${variationId}`, data),
   deleteVariation: (productId: string, variationId: string) =>
-    productsApi.delete(`/products/${productId}/variations/${variationId}`),
+    productsApi.delete(`/api/products/${productId}/variations/${variationId}`),
   
   // SKU/Barcode generation
   generateSKU: (data: { prefix?: string; suffix?: string; strategy?: string; category_id?: string }) =>
-    productsApi.post('/products/generate-sku', data),
+    productsApi.post('/api/products/generate-sku', data),
   generateBarcode: (data: { prefix?: string; suffix?: string; format?: string }) =>
-    productsApi.post('/products/generate-barcode', data),
+    productsApi.post('/api/products/generate-barcode', data),
 }
 
 export const cartAPI = {
