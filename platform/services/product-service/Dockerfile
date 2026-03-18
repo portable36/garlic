@@ -1,11 +1,14 @@
-FROM golang:1.21 AS builder
+FROM golang:1.23-alpine AS builder
+
+RUN apk add --no-cache git ca-certificates
 
 WORKDIR /app
 
-ENV GOPROXY=https://goproxy.cn,https://goproxy.io,direct
+ENV GOPROXY=https://goproxy.cn,direct
 ENV GOSUMDB=off
 ENV GIT_TERMINAL_PROMPT=0
 ENV GODEBUG=http2client=0
+ENV GOTOOLCHAIN=auto
 
 RUN git config --global --add url."https://".insteadOf git:// && \
     git config --global --add url."https://github.com/".insteadOf "git@github.com:" && \

@@ -7,6 +7,7 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -21,7 +22,6 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-)
 )
 
 type Config struct {
@@ -159,32 +159,42 @@ func getEnv(key, defaultValue string) string {
 // ============== MODELS ==============
 
 type Product struct {
-	ID          uuid.UUID       `db:"id" json:"id"`
-	Name        string          `db:"name" json:"name"`
-	Description string          `db:"description" json:"description"`
-	Price       float64         `db:"price" json:"price"`
-	CategoryID  *uuid.UUID      `db:"category_id" json:"category_id,omitempty"`
-	VendorID    *uuid.UUID      `db:"vendor_id" json:"vendor_id,omitempty"`
-	Stock       int             `db:"stock" json:"stock"`
-	Discount    float64         `db:"discount" json:"discount"`
-	Status      string          `db:"status" json:"status"`
-	IsActive    bool            `db:"is_active" json:"is_active"`
-	Variations  []ProductVariation `json:"variations,omitempty"`
-	Images      []ProductImage   `json:"images,omitempty"`
-	CreatedAt   time.Time       `db:"created_at" json:"created_at"`
-	UpdatedAt   time.Time       `db:"updated_at" json:"updated_at"`
+	ID          uuid.UUID        `gorm:"type:uuid;primaryKey" db:"id" json:"id"`
+	Name        string           `gorm:"type:varchar(255);not null" db:"name" json:"name"`
+	Description string           `gorm:"type:text" db:"description" json:"description"`
+	Price       float64          `gorm:"type:numeric(10,2);not null" db:"price" json:"price"`
+	BrandID     *uuid.UUID       `gorm:"type:uuid" db:"brand_id" json:"brand_id,omitempty"`
+	BrandCode   string           `gorm:"type:varchar(20)" db:"brand_code" json:"brand_code,omitempty"`
+	CategoryID  *uuid.UUID       `gorm:"type:uuid" db:"category_id" json:"category_id,omitempty"`
+	VendorID    *uuid.UUID       `gorm:"type:uuid" db:"vendor_id" json:"vendor_id,omitempty"`
+	Stock       int              `gorm:"default:0" db:"stock" json:"stock"`
+	Discount    float64          `gorm:"type:numeric(5,2);default:0" db:"discount" json:"discount"`
+	Status      string           `gorm:"type:varchar(20);default:'draft'" db:"status" json:"status"`
+	IsActive    bool             `gorm:"default:true" db:"is_active" json:"is_active"`
+	Variations  []ProductVariation `gorm:"-" json:"variations,omitempty"`
+	Images      []ProductImage   `gorm:"-" json:"images,omitempty"`
+	CreatedAt   time.Time        `gorm:"autoCreateTime" db:"created_at" json:"created_at"`
+	UpdatedAt   time.Time        `gorm:"autoUpdateTime" db:"updated_at" json:"updated_at"`
+}
+
+func (Product) TableName() string {
+	return "products"
 }
 
 type ProductVariation struct {
-	ID          uuid.UUID              `db:"id" json:"id"`
-	ProductID   uuid.UUID              `db:"product_id" json:"product_id"`
-	SKU         string                 `db:"sku" json:"sku"`
-	Barcode     string                 `db:"barcode" json:"barcode,omitempty"`
-	Attributes  map[string]string      `db:"attributes" json:"attributes"`
-	Price       float64               `db:"price" json:"price"`
-	Stock       int                   `db:"stock" json:"stock"`
-	IsActive    bool                  `db:"is_active" json:"is_active"`
-	CreatedAt   time.Time             `db:"created_at" json:"created_at"`
+	ID          uuid.UUID              `gorm:"type:uuid;primaryKey" db:"id" json:"id"`
+	ProductID   uuid.UUID              `gorm:"type:uuid;not null;index" db:"product_id" json:"product_id"`
+	SKU         string                 `gorm:"type:varchar(50)" db:"sku" json:"sku"`
+	Barcode     string                 `gorm:"type:varchar(50)" db:"barcode" json:"barcode,omitempty"`
+	Attributes  map[string]string      `gorm:"type:jsonb;default:'{}'" db:"attributes" json:"attributes"`
+	Price       float64                `gorm:"type:numeric(10,2);not null" db:"price" json:"price"`
+	Stock       int                    `gorm:"default:0" db:"stock" json:"stock"`
+	IsActive    bool                   `gorm:"default:true" db:"is_active" json:"is_active"`
+	CreatedAt   time.Time              `gorm:"autoCreateTime" db:"created_at" json:"created_at"`
+}
+
+func (ProductVariation) TableName() string {
+	return "product_variations"
 }
 
 type ProductImage struct {
@@ -228,6 +238,90 @@ type CategoryTreeItem struct {
 	Children    []CategoryTreeItem `json:"children,omitempty"`
 }
 
+type GORMAttributeDefinition struct {
+	ID          uuid.UUID           `gorm:"type:uuid;primaryKey" json:"id"`
+	Name        string              `gorm:"type:varchar(100);not null;uniqueIndex" json:"name"`
+	Code        string              `gorm:"type:varchar(50);not null;uniqueIndex" json:"code"`
+	Description string              `gorm:"type:text" json:"description,omitempty"`
+	Type        string              `gorm:"type:varchar(20);default:'select'" json:"type"`
+	IsRequired  bool                `gorm:"default:false" json:"is_required"`
+	IsFilterable bool               `gorm:"default:false" json:"is_filterable"`
+	IsSearchable bool               `gorm:"default:false" json:"is_searchable"`
+	DisplayOrder int                `gorm:"default:0" json:"display_order"`
+	IsActive    bool                `gorm:"default:true" json:"is_active"`
+	Values      []GORMAttributeValue `gorm:"foreignKey:AttributeID" json:"values,omitempty"`
+	CreatedAt   time.Time           `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt   time.Time           `gorm:"autoUpdateTime" json:"updated_at"`
+}
+
+func (GORMAttributeDefinition) TableName() string {
+	return "attribute_definitions"
+}
+
+type GORMAttributeValue struct {
+	ID         uuid.UUID               `gorm:"type:uuid;primaryKey" json:"id"`
+	AttributeID uuid.UUID              `gorm:"type:uuid;not null;index" json:"attribute_id"`
+	Value      string                  `gorm:"type:varchar(255);not null" json:"value"`
+	Code       string                  `gorm:"type:varchar(50);not null" json:"code"`
+	SwatchColor string                 `gorm:"type:varchar(20)" json:"swatch_color,omitempty"`
+	SwatchImage string                 `gorm:"type:varchar(500)" json:"swatch_image,omitempty"`
+	DisplayOrder int                   `gorm:"default:0" json:"display_order"`
+	IsActive   bool                    `gorm:"default:true" json:"is_active"`
+	CreatedAt  time.Time               `gorm:"autoCreateTime" json:"created_at"`
+}
+
+func (GORMAttributeValue) TableName() string {
+	return "attribute_values"
+}
+
+type GORMSKUSuffixRule struct {
+	ID           uuid.UUID `gorm:"type:uuid;primaryKey" json:"id"`
+	Name         string    `gorm:"type:varchar(100);not null" json:"name"`
+	Code         string    `gorm:"type:varchar(50);not null;uniqueIndex" json:"code"`
+	Suffix       string    `gorm:"type:varchar(50);not null" json:"suffix"`
+	Description  string    `gorm:"type:text" json:"description,omitempty"`
+	ValidFrom    *time.Time `gorm:"type:timestamp" json:"valid_from,omitempty"`
+	ValidTo      *time.Time `gorm:"type:timestamp" json:"valid_to,omitempty"`
+	IsSystem     bool      `gorm:"default:false" json:"is_system"`
+	IsActive     bool      `gorm:"default:true" json:"is_active"`
+	CreatedAt    time.Time `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt    time.Time `gorm:"autoUpdateTime" json:"updated_at"`
+}
+
+func (GORMSKUSuffixRule) TableName() string {
+	return "sku_suffix_rules"
+}
+
+type GORMBrand struct {
+	ID          uuid.UUID  `gorm:"type:uuid;primaryKey" json:"id"`
+	Name        string     `gorm:"type:varchar(255);not null" json:"name"`
+	Slug        string     `gorm:"type:varchar(255);not null;uniqueIndex" json:"slug"`
+	BrandCode   string     `gorm:"type:varchar(20)" json:"brand_code"`
+	LogoURL     string     `gorm:"type:text" json:"logo_url,omitempty"`
+	Description string     `gorm:"type:text" json:"description,omitempty"`
+	Tier        string     `gorm:"type:varchar(20);default:'standard'" json:"tier"`
+	Status      string     `gorm:"type:varchar(20);default:'active'" json:"status"`
+	CreatedBy   *uuid.UUID `gorm:"type:uuid" json:"created_by,omitempty"`
+	CreatedAt   time.Time  `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt   time.Time  `gorm:"autoUpdateTime" json:"updated_at"`
+}
+
+func (GORMBrand) TableName() string {
+	return "brands"
+}
+
+type GORMVariationAttributeValue struct {
+	ID               uuid.UUID `gorm:"type:uuid;primaryKey" json:"id"`
+	VariationID      uuid.UUID `gorm:"type:uuid;not null;index" json:"variation_id"`
+	AttributeID      uuid.UUID `gorm:"type:uuid;not null" json:"attribute_id"`
+	AttributeValueID uuid.UUID `gorm:"type:uuid;not null" json:"attribute_value_id"`
+	CreatedAt        time.Time `gorm:"autoCreateTime" json:"created_at"`
+}
+
+func (GORMVariationAttributeValue) TableName() string {
+	return "product_variation_attribute_values"
+}
+
 // ============== REQUEST MODELS ==============
 
 type CreateProductRequest struct {
@@ -250,6 +344,43 @@ type CreateVariationRequest struct {
 	Stock      int                    `json:"stock"`
 }
 
+type CreateBrandRequest struct {
+	Name        string `json:"name" binding:"required"`
+	LogoURL     string `json:"logo_url"`
+	Description string `json:"description"`
+	Tier        string `json:"tier"`
+}
+
+type CreateProductV2Request struct {
+	Name        string                                  `json:"name" binding:"required"`
+	Description string                                  `json:"description"`
+	Price       float64                                 `json:"price" binding:"required,gt=0"`
+	BrandID    *uuid.UUID                              `json:"brand_id"`
+	BrandCode   string                                 `json:"brand_code"`
+	CategoryID  *uuid.UUID                              `json:"category_id"`
+	VendorID    *uuid.UUID                              `json:"vendor_id"`
+	Stock       int                                     `json:"stock"`
+	Discount    float64                                 `json:"discount"`
+	Status      string                                  `json:"status"`
+	Variations  []CreateVariationWithAttributesRequest  `json:"variations"`
+}
+
+type CreateVariationWithAttributesRequest struct {
+	SKU               string            `json:"sku"`
+	Barcode           string            `json:"barcode"`
+	Attributes        map[string]string `json:"attributes"`
+	AttributeValueIDs []uuid.UUID       `json:"attribute_value_ids"`
+	Price             float64           `json:"price"`
+	Stock             int               `json:"stock"`
+}
+
+type GenerateSKURequestV3 struct {
+	BrandCode      string   `json:"brand_code"`
+	ProductCode    string   `json:"product_code" binding:"required"`
+	AttributeCodes []string `json:"attribute_codes"`
+	Suffix         string   `json:"suffix"`
+}
+
 type GenerateSKURequest struct {
 	Prefix      string `json:"prefix"`
 	Suffix      string `json:"suffix"`
@@ -261,6 +392,48 @@ type GenerateBarcodeRequest struct {
 	Prefix  string `json:"prefix"`
 	Suffix  string `json:"suffix"`
 	Format  string `json:"format"` // ean13, code128
+}
+
+type CreateAttributeRequest struct {
+	Name        string `json:"name" binding:"required"`
+	Code        string `json:"code" binding:"required"`
+	Description string `json:"description"`
+	Type        string `json:"type"`
+	IsRequired  bool   `json:"is_required"`
+	IsFilterable bool  `json:"is_filterable"`
+	IsSearchable bool  `json:"is_searchable"`
+	DisplayOrder int   `json:"display_order"`
+}
+
+type CreateAttributeValueRequest struct {
+	AttributeID uuid.UUID `json:"attribute_id" binding:"required"`
+	Value       string    `json:"value" binding:"required"`
+	Code        string    `json:"code" binding:"required"`
+	SwatchColor string    `json:"swatch_color"`
+	SwatchImage string    `json:"swatch_image"`
+	DisplayOrder int      `json:"display_order"`
+}
+
+type GenerateMatrixRequest struct {
+	ProductCode string                     `json:"product_code" binding:"required"`
+	BrandCode   string                     `json:"brand_code"`
+	Prefix      string                     `json:"prefix"`
+	Suffix      string                     `json:"suffix"`
+	CategoryID  *uuid.UUID                 `json:"category_id"`
+	Selections  []AttributeSelectionRequest `json:"selections"`
+}
+
+type AttributeSelectionRequest struct {
+	AttributeID uuid.UUID `json:"attribute_id" binding:"required"`
+	ValueIDs    []uuid.UUID `json:"value_ids" binding:"required"`
+}
+
+type GenerateSKURequestV2 struct {
+	ProductCode    string            `json:"product_code" binding:"required"`
+	Prefix         string            `json:"prefix"`
+	Suffix         string            `json:"suffix"`
+	AttributeCodes []string          `json:"attribute_codes"`
+	CategoryID    *uuid.UUID        `json:"category_id"`
 }
 
 // ============== SKU GENERATOR ==============
@@ -588,17 +761,28 @@ func listProductsHandler(db *sqlx.DB) gin.HandlerFunc {
 		pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
 		offset := (page - 1) * pageSize
 		
-		var products []Product
-		err := db.Select(&products, "SELECT * FROM products ORDER BY created_at DESC LIMIT $1 OFFSET $2", pageSize, offset)
-		if err != nil {
-			c.JSON(500, gin.H{"error": "Failed to fetch products"})
-			return
+		type ProductRow struct {
+			ID          uuid.UUID  `db:"id"`
+			Name        string     `db:"name"`
+			Description *string    `db:"description"`
+			Price       float64    `db:"price"`
+			BrandID     *uuid.UUID `db:"brand_id"`
+			BrandCode   *string    `db:"brand_code"`
+			CategoryID  *uuid.UUID `db:"category_id"`
+			VendorID    *uuid.UUID `db:"vendor_id"`
+			Stock       int        `db:"stock"`
+			Discount    float64    `db:"discount"`
+			Status      *string    `db:"status"`
+			IsActive    bool       `db:"is_active"`
+			CreatedAt   time.Time  `db:"created_at"`
+			UpdatedAt   time.Time  `db:"updated_at"`
 		}
 		
-		// Get variations for each product
-		for i := range products {
-			db.Select(&products[i].Variations, "SELECT * FROM product_variations WHERE product_id = $1", products[i].ID)
-			db.Select(&products[i].Images, "SELECT * FROM product_images WHERE product_id = $1", products[i].ID)
+		var products []ProductRow
+		err := db.Select(&products, "SELECT id, name, description, price, brand_id, brand_code, category_id, vendor_id, stock, discount, status, is_active, created_at, updated_at FROM products ORDER BY created_at DESC LIMIT $1 OFFSET $2", pageSize, offset)
+		if err != nil {
+			c.JSON(500, gin.H{"error": "Failed to fetch products: " + err.Error()})
+			return
 		}
 		
 		var count int64
@@ -1031,6 +1215,757 @@ func uploadImageHandler(db *sqlx.DB, minioClient *minio.Client, bucketName strin
 	}
 }
 
+func listAttributesHandler(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var attributes []GORMAttributeDefinition
+		if err := db.Preload("Values", "is_active = ?", true).Where("is_active = ?", true).Order("display_order, name").Find(&attributes).Error; err != nil {
+			c.JSON(500, gin.H{"error": "Failed to fetch attributes"})
+			return
+		}
+		c.JSON(200, gin.H{"attributes": attributes})
+	}
+}
+
+func getAttributeHandler(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id, err := uuid.Parse(c.Param("id"))
+		if err != nil {
+			c.JSON(400, gin.H{"error": "Invalid attribute ID"})
+			return
+		}
+
+		var attribute GORMAttributeDefinition
+		if err := db.Preload("Values", "is_active = ?", true).First(&attribute, "id = ?", id).Error; err != nil {
+			c.JSON(404, gin.H{"error": "Attribute not found"})
+			return
+		}
+		c.JSON(200, gin.H{"attribute": attribute})
+	}
+}
+
+func createAttributeHandler(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req CreateAttributeRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(400, gin.H{"error": err.Error()})
+			return
+		}
+
+		attribute := GORMAttributeDefinition{
+			ID:           uuid.New(),
+			Name:         req.Name,
+			Code:         strings.ToUpper(req.Code),
+			Description:  req.Description,
+			Type:         req.Type,
+			IsRequired:   req.IsRequired,
+			IsFilterable: req.IsFilterable,
+			IsSearchable: req.IsSearchable,
+			DisplayOrder: req.DisplayOrder,
+			IsActive:     true,
+		}
+
+		if attribute.Type == "" {
+			attribute.Type = "select"
+		}
+
+		if err := db.Create(&attribute).Error; err != nil {
+			c.JSON(500, gin.H{"error": "Failed to create attribute: " + err.Error()})
+			return
+		}
+
+		c.JSON(201, gin.H{"attribute": attribute})
+	}
+}
+
+func updateAttributeHandler(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id, err := uuid.Parse(c.Param("id"))
+		if err != nil {
+			c.JSON(400, gin.H{"error": "Invalid attribute ID"})
+			return
+		}
+
+		var req struct {
+			Name         string `json:"name"`
+			Description  string `json:"description"`
+			Type         string `json:"type"`
+			IsRequired   *bool  `json:"is_required"`
+			IsFilterable *bool  `json:"is_filterable"`
+			IsSearchable *bool  `json:"is_searchable"`
+			DisplayOrder int    `json:"display_order"`
+			IsActive     *bool  `json:"is_active"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(400, gin.H{"error": err.Error()})
+			return
+		}
+
+		var attribute GORMAttributeDefinition
+		if err := db.First(&attribute, "id = ?", id).Error; err != nil {
+			c.JSON(404, gin.H{"error": "Attribute not found"})
+			return
+		}
+
+		if req.Name != "" {
+			attribute.Name = req.Name
+		}
+		if req.Description != "" {
+			attribute.Description = req.Description
+		}
+		if req.Type != "" {
+			attribute.Type = req.Type
+		}
+		if req.IsRequired != nil {
+			attribute.IsRequired = *req.IsRequired
+		}
+		if req.IsFilterable != nil {
+			attribute.IsFilterable = *req.IsFilterable
+		}
+		if req.IsSearchable != nil {
+			attribute.IsSearchable = *req.IsSearchable
+		}
+		if req.DisplayOrder > 0 {
+			attribute.DisplayOrder = req.DisplayOrder
+		}
+		if req.IsActive != nil {
+			attribute.IsActive = *req.IsActive
+		}
+
+		if err := db.Save(&attribute).Error; err != nil {
+			c.JSON(500, gin.H{"error": "Failed to update attribute"})
+			return
+		}
+
+		c.JSON(200, gin.H{"attribute": attribute})
+	}
+}
+
+func deleteAttributeHandler(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id, err := uuid.Parse(c.Param("id"))
+		if err != nil {
+			c.JSON(400, gin.H{"error": "Invalid attribute ID"})
+			return
+		}
+
+		if err := db.Delete(&GORMAttributeDefinition{}, "id = ?", id).Error; err != nil {
+			c.JSON(500, gin.H{"error": "Failed to delete attribute"})
+			return
+		}
+
+		c.JSON(200, gin.H{"message": "Attribute deleted successfully"})
+	}
+}
+
+func listAttributeValuesHandler(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		attributeID, err := uuid.Parse(c.Query("attribute_id"))
+		if err != nil {
+			c.JSON(400, gin.H{"error": "Invalid attribute ID"})
+			return
+		}
+
+		var values []GORMAttributeValue
+		if err := db.Where("attribute_id = ? AND is_active = ?", attributeID, true).Order("display_order, value").Find(&values).Error; err != nil {
+			c.JSON(500, gin.H{"error": "Failed to fetch attribute values"})
+			return
+		}
+		c.JSON(200, gin.H{"values": values})
+	}
+}
+
+func createAttributeValueHandler(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req CreateAttributeValueRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(400, gin.H{"error": err.Error()})
+			return
+		}
+
+		var attribute GORMAttributeDefinition
+		if err := db.First(&attribute, "id = ?", req.AttributeID).Error; err != nil {
+			c.JSON(404, gin.H{"error": "Attribute not found"})
+			return
+		}
+
+		value := GORMAttributeValue{
+			ID:          uuid.New(),
+			AttributeID: req.AttributeID,
+			Value:       req.Value,
+			Code:        strings.ToUpper(req.Code),
+			SwatchColor: req.SwatchColor,
+			SwatchImage: req.SwatchImage,
+			DisplayOrder: req.DisplayOrder,
+			IsActive:    true,
+		}
+
+		if err := db.Create(&value).Error; err != nil {
+			c.JSON(500, gin.H{"error": "Failed to create attribute value"})
+			return
+		}
+
+		c.JSON(201, gin.H{"value": value})
+	}
+}
+
+func updateAttributeValueHandler(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id, err := uuid.Parse(c.Param("id"))
+		if err != nil {
+			c.JSON(400, gin.H{"error": "Invalid value ID"})
+			return
+		}
+
+		var req struct {
+			Value        string `json:"value"`
+			Code         string `json:"code"`
+			SwatchColor  string `json:"swatch_color"`
+			SwatchImage  string `json:"swatch_image"`
+			DisplayOrder int    `json:"display_order"`
+			IsActive     *bool  `json:"is_active"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(400, gin.H{"error": err.Error()})
+			return
+		}
+
+		var value GORMAttributeValue
+		if err := db.First(&value, "id = ?", id).Error; err != nil {
+			c.JSON(404, gin.H{"error": "Attribute value not found"})
+			return
+		}
+
+		if req.Value != "" {
+			value.Value = req.Value
+		}
+		if req.Code != "" {
+			value.Code = strings.ToUpper(req.Code)
+		}
+		if req.SwatchColor != "" {
+			value.SwatchColor = req.SwatchColor
+		}
+		if req.SwatchImage != "" {
+			value.SwatchImage = req.SwatchImage
+		}
+		if req.DisplayOrder > 0 {
+			value.DisplayOrder = req.DisplayOrder
+		}
+		if req.IsActive != nil {
+			value.IsActive = *req.IsActive
+		}
+
+		if err := db.Save(&value).Error; err != nil {
+			c.JSON(500, gin.H{"error": "Failed to update attribute value"})
+			return
+		}
+
+		c.JSON(200, gin.H{"value": value})
+	}
+}
+
+func deleteAttributeValueHandler(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id, err := uuid.Parse(c.Param("id"))
+		if err != nil {
+			c.JSON(400, gin.H{"error": "Invalid value ID"})
+			return
+		}
+
+		if err := db.Delete(&GORMAttributeValue{}, "id = ?", id).Error; err != nil {
+			c.JSON(500, gin.H{"error": "Failed to delete attribute value"})
+			return
+		}
+
+		c.JSON(200, gin.H{"message": "Attribute value deleted successfully"})
+	}
+}
+
+func listSKUSuffixRulesHandler(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var rules []GORMSKUSuffixRule
+		if err := db.Where("is_active = ?", true).Order("name").Find(&rules).Error; err != nil {
+			c.JSON(500, gin.H{"error": "Failed to fetch SKU suffix rules"})
+			return
+		}
+		c.JSON(200, gin.H{"rules": rules})
+	}
+}
+
+func listBrandsHandler(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		status := c.Query("status")
+		
+		var brands []GORMBrand
+		query := db.Order("name")
+		
+		if status != "" {
+			query = query.Where("status = ?", status)
+		}
+		
+		if err := query.Find(&brands).Error; err != nil {
+			c.JSON(500, gin.H{"error": "Failed to fetch brands"})
+			return
+		}
+		
+		c.JSON(200, gin.H{"brands": brands})
+	}
+}
+
+func getBrandHandler(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id, err := uuid.Parse(c.Param("id"))
+		if err != nil {
+			c.JSON(400, gin.H{"error": "Invalid brand ID"})
+			return
+		}
+		
+		var brand GORMBrand
+		if err := db.First(&brand, "id = ?", id).Error; err != nil {
+			c.JSON(404, gin.H{"error": "Brand not found"})
+			return
+		}
+		
+		c.JSON(200, gin.H{"brand": brand})
+	}
+}
+
+func createBrandHandler(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req CreateBrandRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(400, gin.H{"error": err.Error()})
+			return
+		}
+		
+		slug := generateSlug(req.Name)
+		
+		brandCode := generateBrandCode(req.Name)
+		
+		brand := GORMBrand{
+			ID:          uuid.New(),
+			Name:        req.Name,
+			Slug:        slug,
+			BrandCode:   brandCode,
+			LogoURL:     req.LogoURL,
+			Description: req.Description,
+			Tier:        req.Tier,
+			Status:      "active",
+		}
+		
+		if brand.Tier == "" {
+			brand.Tier = "standard"
+		}
+		
+		if err := db.Create(&brand).Error; err != nil {
+			c.JSON(500, gin.H{"error": "Failed to create brand: " + err.Error()})
+			return
+		}
+		
+		c.JSON(201, gin.H{"brand": brand})
+	}
+}
+
+func updateBrandHandler(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id, err := uuid.Parse(c.Param("id"))
+		if err != nil {
+			c.JSON(400, gin.H{"error": "Invalid brand ID"})
+			return
+		}
+		
+		var req struct {
+			Name        string `json:"name"`
+			LogoURL     string `json:"logo_url"`
+			Description string `json:"description"`
+			Tier        string `json:"tier"`
+			Status      string `json:"status"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(400, gin.H{"error": err.Error()})
+			return
+		}
+		
+		var brand GORMBrand
+		if err := db.First(&brand, "id = ?", id).Error; err != nil {
+			c.JSON(404, gin.H{"error": "Brand not found"})
+			return
+		}
+		
+		if req.Name != "" {
+			brand.Name = req.Name
+			brand.BrandCode = generateBrandCode(req.Name)
+		}
+		if req.LogoURL != "" {
+			brand.LogoURL = req.LogoURL
+		}
+		if req.Description != "" {
+			brand.Description = req.Description
+		}
+		if req.Tier != "" {
+			brand.Tier = req.Tier
+		}
+		if req.Status != "" {
+			brand.Status = req.Status
+		}
+		
+		if err := db.Save(&brand).Error; err != nil {
+			c.JSON(500, gin.H{"error": "Failed to update brand"})
+			return
+		}
+		
+		c.JSON(200, gin.H{"brand": brand})
+	}
+}
+
+func deleteBrandHandler(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id, err := uuid.Parse(c.Param("id"))
+		if err != nil {
+			c.JSON(400, gin.H{"error": "Invalid brand ID"})
+			return
+		}
+		
+		var count int64
+		db.Model(&Product{}).Where("brand_id = ?", id).Count(&count)
+		if count > 0 {
+			c.JSON(400, gin.H{"error": "Cannot delete brand with associated products"})
+			return
+		}
+		
+		if err := db.Delete(&GORMBrand{}, "id = ?", id).Error; err != nil {
+			c.JSON(500, gin.H{"error": "Failed to delete brand"})
+			return
+		}
+		
+		c.JSON(200, gin.H{"message": "Brand deleted successfully"})
+	}
+}
+
+func generateSlug(name string) string {
+	slug := strings.ToLower(name)
+	slug = strings.ReplaceAll(slug, " ", "-")
+	slug = strings.ReplaceAll(slug, "&", "and")
+	slug = strings.ReplaceAll(slug, "'", "")
+	slug = strings.ReplaceAll(slug, "\"", "")
+	slug = strings.Map(func(r rune) rune {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+			return r
+		}
+		return -1
+	}, slug)
+	return slug
+}
+
+func generateBrandCode(name string) string {
+	words := strings.Fields(name)
+	var code string
+	for _, word := range words {
+		if len(word) > 0 {
+			code += strings.ToUpper(string(word[0]))
+		}
+	}
+	if len(code) > 5 {
+		code = code[:5]
+	}
+	return code
+}
+
+func createProductV2Handler(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req CreateProductV2Request
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(400, gin.H{"error": err.Error()})
+			return
+		}
+		
+		sqlDB, err := db.DB()
+		if err != nil {
+			c.JSON(500, gin.H{"error": "Database connection error"})
+			return
+		}
+		
+		tx, err := sqlDB.Begin()
+		if err != nil {
+			c.JSON(500, gin.H{"error": "Failed to start transaction"})
+			return
+		}
+		defer tx.Rollback()
+		
+		var brandCode string
+		if req.BrandCode != "" {
+			brandCode = req.BrandCode
+		} else if req.BrandID != nil {
+			var brand GORMBrand
+			if err := db.First(&brand, "id = ?", req.BrandID).Error; err == nil {
+				brandCode = brand.BrandCode
+			}
+		}
+		
+		status := req.Status
+		if status == "" {
+			status = "draft"
+		}
+		
+		productID := uuid.New()
+		now := time.Now()
+		
+		_, err = tx.Exec(`
+			INSERT INTO products (id, name, description, price, brand_id, brand_code, category_id, vendor_id, stock, discount, status, is_active, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+			productID, req.Name, req.Description, req.Price, req.BrandID, brandCode,
+			req.CategoryID, req.VendorID, req.Stock, req.Discount, status, true, now, now)
+		if err != nil {
+			c.JSON(500, gin.H{"error": "Failed to create product: " + err.Error()})
+			return
+		}
+		
+		var variations []ProductVariation
+		for _, vReq := range req.Variations {
+			price := vReq.Price
+			if price == 0 {
+				price = req.Price
+			}
+			
+			stock := vReq.Stock
+			if stock == 0 {
+				stock = req.Stock
+			}
+			
+			sku := vReq.SKU
+			if sku == "" {
+				sku = GenerateSKU(SKUSettings{Prefix: brandCode, Strategy: "incremental"}, "")
+				sku = EnsureUniqueSKUGORM(db, sku)
+			}
+			
+			var attrsJSON []byte
+			if vReq.Attributes != nil {
+				attrsJSON, _ = json.Marshal(vReq.Attributes)
+			} else {
+				attrsJSON = []byte("{}")
+			}
+			
+			var barcode interface{}
+			if vReq.Barcode != "" {
+				barcode = vReq.Barcode
+			} else {
+				barcode = nil
+			}
+			
+			variationID := uuid.New()
+			_, err = tx.Exec(`
+				INSERT INTO product_variations (id, product_id, sku, barcode, attributes, price, stock, is_active, created_at)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+				variationID, productID, sku, barcode, attrsJSON, price, stock, true, now)
+			if err != nil {
+				c.JSON(500, gin.H{"error": "Failed to create variation: " + err.Error()})
+				return
+			}
+			
+			for _, attrValID := range vReq.AttributeValueIDs {
+				var attrID uuid.UUID
+				err := sqlDB.QueryRow("SELECT attribute_id FROM attribute_values WHERE id = $1", attrValID).Scan(&attrID)
+				if err != nil {
+					c.JSON(400, gin.H{"error": "Invalid attribute value ID: " + err.Error()})
+					return
+				}
+				
+				_, err = tx.Exec(`
+					INSERT INTO product_variation_attribute_values (id, variation_id, attribute_id, attribute_value_id, created_at)
+					VALUES ($1, $2, $3, $4, $5)`,
+					uuid.New(), variationID, attrID, attrValID, now)
+				if err != nil {
+					c.JSON(500, gin.H{"error": "Failed to create variation attribute value: " + err.Error()})
+					return
+				}
+			}
+			
+			variations = append(variations, ProductVariation{
+				ID:         variationID,
+				ProductID:  productID,
+				SKU:        sku,
+				Barcode:    vReq.Barcode,
+				Attributes: vReq.Attributes,
+				Price:      price,
+				Stock:      stock,
+				IsActive:   true,
+				CreatedAt:  now,
+			})
+		}
+		
+		if err := tx.Commit(); err != nil {
+			c.JSON(500, gin.H{"error": "Failed to commit transaction"})
+			return
+		}
+		
+		product := Product{
+			ID:          productID,
+			Name:        req.Name,
+			Description: req.Description,
+			Price:       req.Price,
+			BrandID:     req.BrandID,
+			BrandCode:   brandCode,
+			CategoryID:  req.CategoryID,
+			VendorID:    req.VendorID,
+			Stock:       req.Stock,
+			Discount:    req.Discount,
+			Status:      status,
+			IsActive:    true,
+			Variations:  variations,
+			CreatedAt:   now,
+			UpdatedAt:   now,
+		}
+		
+		c.JSON(201, gin.H{"product": product})
+	}
+}
+
+func EnsureUniqueSKUGORM(db *gorm.DB, sku string) string {
+	var count int64
+	for {
+		db.Model(&ProductVariation{}).Where("sku = ?", sku).Count(&count)
+		if count == 0 {
+			return sku
+	}
+		sku = sku + fmt.Sprintf("-%d", rand.Intn(100))
+	}
+}
+
+func getActiveSuffix(db *gorm.DB) string {
+	var rule GORMSKUSuffixRule
+	if err := db.Where("is_active = ? AND (valid_from IS NULL OR valid_from <= ?) AND (valid_to IS NULL OR valid_to >= ?)",
+		true, time.Now(), time.Now()).First(&rule).Error; err != nil {
+		return "SS24"
+	}
+	return rule.Suffix
+}
+
+func generateSKUv3Handler(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req GenerateSKURequestV3
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(400, gin.H{"error": err.Error()})
+			return
+		}
+		
+		suffix := req.Suffix
+		if suffix == "" {
+			suffix = getActiveSuffix(db)
+		}
+		
+		sku := GenerateSKUv3(req.BrandCode, req.ProductCode, req.AttributeCodes, suffix)
+		
+		c.JSON(200, gin.H{"sku": sku})
+	}
+}
+
+func GenerateSKUv3(brandCode, productCode string, attrCodes []string, suffix string) string {
+	parts := []string{
+		strings.ToUpper(brandCode),
+		strings.ToUpper(productCode),
+	}
+	if len(attrCodes) > 0 {
+		sorted := make([]string, len(attrCodes))
+		copy(sorted, attrCodes)
+		sort.Strings(sorted)
+		parts = append(parts, strings.Join(sorted, "-"))
+	}
+	if suffix != "" {
+		parts = append(parts, suffix)
+	}
+	return strings.Join(parts, "-")
+}
+
+func generateMatrixHandler(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req GenerateMatrixRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(400, gin.H{"error": err.Error()})
+			return
+		}
+
+		brandCode := req.BrandCode
+
+		// Get attribute values for each selection
+		var selectionsWithValues []struct {
+			AttributeID   uuid.UUID
+			AttributeCode string
+			Values        []GORMAttributeValue
+		}
+
+		for _, sel := range req.Selections {
+			var attrDef GORMAttributeDefinition
+			if err := db.First(&attrDef, "id = ?", sel.AttributeID).Error; err != nil {
+				continue
+			}
+
+			var values []GORMAttributeValue
+			db.Where("id IN ? AND is_active = ?", sel.ValueIDs, true).Find(&values)
+
+			selectionsWithValues = append(selectionsWithValues, struct {
+				AttributeID   uuid.UUID
+				AttributeCode string
+				Values        []GORMAttributeValue
+			}{
+				AttributeID:   sel.AttributeID,
+				AttributeCode: strings.ToUpper(attrDef.Code),
+				Values:        values,
+			})
+		}
+
+		// Generate Cartesian product
+		var variations []ProductVariation
+		generateCartesian(selectionsWithValues, 0, map[string]string{}, &variations, req.ProductCode, brandCode, req.Suffix)
+
+		c.JSON(200, gin.H{
+			"variations": variations,
+			"count":      len(variations),
+		})
+	}
+}
+
+func generateCartesian(selections []struct {
+	AttributeID   uuid.UUID
+	AttributeCode string
+	Values        []GORMAttributeValue
+}, index int, current map[string]string, result *[]ProductVariation, productCode, brandCode, suffix string) {
+	if index >= len(selections) {
+		// Create a variation for this combination
+		attrCodes := make([]string, 0, len(current))
+		for _, v := range current {
+			attrCodes = append(attrCodes, v)
+		}
+
+		sku := GenerateSKUv3(brandCode, productCode, attrCodes, suffix)
+
+		variation := ProductVariation{
+			ID:         uuid.New(),
+			SKU:        sku,
+			Attributes: copyMap(current),
+			IsActive:   true,
+		}
+		*result = append(*result, variation)
+		return
+	}
+
+	sel := selections[index]
+	for _, val := range sel.Values {
+		newMap := make(map[string]string)
+		for k, v := range current {
+			newMap[k] = v
+		}
+		newMap[sel.AttributeCode] = val.Code
+		generateCartesian(selections, index+1, newMap, result, productCode, brandCode, suffix)
+	}
+}
+
+func copyMap(m map[string]string) map[string]string {
+	result := make(map[string]string)
+	for k, v := range m {
+		result[k] = v
+	}
+	return result
+}
+
 func adminMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Simplified - in production, validate JWT and check role
@@ -1093,8 +2028,13 @@ func main() {
 	sqlDB, _ := gormDB.DB()
 	defer sqlDB.Close()
 
-	// Auto migrate categories
+	// Auto migrate categories and attributes
 	gormDB.AutoMigrate(&GORMCategory{})
+	gormDB.AutoMigrate(&GORMAttributeDefinition{})
+	gormDB.AutoMigrate(&GORMAttributeValue{})
+	gormDB.AutoMigrate(&GORMSKUSuffixRule{})
+	gormDB.AutoMigrate(&GORMBrand{})
+	gormDB.AutoMigrate(&GORMVariationAttributeValue{})
 	
 	// Load product settings
 	globalProductSettings = LoadProductSettings(adminDB)
@@ -1132,6 +2072,8 @@ func main() {
 	r.GET("/products/:id", getProductHandler(db))
 	r.GET("/products/categories", listCategoriesHandler(db))
 	r.GET("/products/categories/tree", listCategoriesTreeHandler(gormDB))
+	r.GET("/brands", listBrandsHandler(gormDB))
+	r.GET("/brands/:id", getBrandHandler(gormDB))
 	
 	// Admin endpoints
 	admin := r.Group("/products")
@@ -1157,6 +2099,36 @@ func main() {
 		admin.POST("/categories", createCategoryHandler(gormDB))
 		admin.PUT("/categories/:id", updateCategoryHandler(gormDB))
 		admin.DELETE("/categories/:id", deleteCategoryHandler(gormDB))
+
+		// Attributes
+		admin.GET("/attributes", listAttributesHandler(gormDB))
+		admin.GET("/attributes/:id", getAttributeHandler(gormDB))
+		admin.POST("/attributes", createAttributeHandler(gormDB))
+		admin.PUT("/attributes/:id", updateAttributeHandler(gormDB))
+		admin.DELETE("/attributes/:id", deleteAttributeHandler(gormDB))
+
+		// Attribute Values
+		admin.GET("/attribute-values", listAttributeValuesHandler(gormDB))
+		admin.POST("/attribute-values", createAttributeValueHandler(gormDB))
+		admin.PUT("/attribute-values/:id", updateAttributeValueHandler(gormDB))
+		admin.DELETE("/attribute-values/:id", deleteAttributeValueHandler(gormDB))
+
+		// SKU Suffix Rules
+		admin.GET("/sku-suffix-rules", listSKUSuffixRulesHandler(gormDB))
+
+		// Brands (CRUD)
+		admin.POST("/brands", createBrandHandler(gormDB))
+		admin.PUT("/brands/:id", updateBrandHandler(gormDB))
+		admin.DELETE("/brands/:id", deleteBrandHandler(gormDB))
+
+		// Product V2 with transactional variation creation
+		admin.POST("/v2", createProductV2Handler(gormDB))
+
+		// SKU V3 with brand code
+		admin.POST("/generate-sku-v3", generateSKUv3Handler(gormDB))
+
+		// Generate matrix (Cartesian product of attribute values)
+		admin.POST("/generate-matrix", generateMatrixHandler(gormDB))
 	}
 	
 	addr := fmt.Sprintf(":%s", cfg.Server.Port)
