@@ -27,5 +27,6 @@ USER nextjs
 EXPOSE 3000
 
 ENV PORT=3000
+ENV NEXT_PUBLIC_API_URL=http://localhost
 
 CMD ["node", "server.js"]
