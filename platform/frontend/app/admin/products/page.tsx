@@ -101,6 +101,12 @@ export default function AdminProductsPage() {
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right">
+                  <Link
+                    href={`/admin/products/${product.id}/edit`}
+                    className="text-blue-600 hover:text-blue-700 mr-4"
+                  >
+                    Edit
+                  </Link>
                   <button
                     onClick={() => {
                       if (confirm('Are you sure you want to delete this product?')) {
