@@ -1,0 +1,447 @@
+_format_version: "3.0"
+_transform: true
+
+# ===========================================
+# JWT CONSUMERS (Users/Clients)
+# ===========================================
+consumers:
+  - username: web-client
+    jwt_claims:
+      role: customer
+  - username: mobile-client
+    jwt_claims:
+      role: customer
+  - username: admin-client
+    jwt_claims:
+      role: admin
+  - username: internal-service
+    jwt_claims:
+      role: service
+
+# ===========================================
+# JWT CREDENTIALS
+# ===========================================
+jwt_secrets:
+  - consumer: web-client
+    key: "garlic-web-key-001"
+    algorithm: HS256
+    rsa_public_key: ""
+    secret: "garlic_jwt_secret_key_change_in_production_min_256_bits"
+
+  - consumer: mobile-client
+    key: "garlic-mobile-key-001"
+    algorithm: HS256
+    secret: "garlic_jwt_secret_key_change_in_production_min_256_bits"
+
+  - consumer: admin-client
+    key: "garlic-admin-key-001"
+    algorithm: HS256
+    secret: "garlic_jwt_secret_key_change_in_production_min_256_bits"
+
+  - consumer: internal-service
+    key: "garlic-internal-key-001"
+    algorithm: HS256
+    secret: "garlic_jwt_secret_key_change_in_production_min_256_bits"
+
+# ===========================================
+# RATE LIMITING PLUGINS
+# ===========================================
+rate_limiting_plugins:
+  - name: rate-limiting
+    config:
+      minute: 100
+      hour: 1000
+      policy: local
+      fault_tolerant: true
+      hide_client_headers: false
+
+# ===========================================
+# SERVICES
+# ===========================================
+services:
+  # ===========================================
+  # AUTH SERVICE
+  # ===========================================
+  - name: auth-service
+    url: http://auth-service:8081
+    routes:
+      - name: auth-login
+        paths:
+          - /api/auth/login
+        methods:
+          - POST
+        strip_path: false
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 20
+              hour: 100
+      - name: auth-register
+        paths:
+          - /api/auth/register
+        methods:
+          - POST
+        strip_path: false
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 10
+              hour: 50
+      - name: auth-refresh
+        paths:
+          - /api/auth/refresh
+        methods:
+          - POST
+        strip_path: false
+      - name: auth-validate
+        paths:
+          - /api/auth/validate
+        methods:
+          - GET
+        strip_path: false
+
+  # ===========================================
+  # PRODUCT SERVICE
+  # ===========================================
+  - name: product-service
+    url: http://product-service:8082
+    routes:
+      - name: product-public
+        paths:
+          - /api/products
+        methods:
+          - GET
+        strip_path: false
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 200
+              hour: 5000
+      - name: product-search
+        paths:
+          - /api/products/search
+        methods:
+          - GET
+        strip_path: false
+      - name: product-detail
+        paths:
+          - /api/products
+        methods:
+          - GET
+        strip_path: false
+      - name: product-admin
+        paths:
+          - /api/admin/products
+        methods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+        strip_path: false
+
+  # ===========================================
+  # ORDER SERVICE
+  # ===========================================
+  - name: order-service
+    url: http://order-service:8083
+    routes:
+      - name: order-create
+        paths:
+          - /api/orders
+        methods:
+          - POST
+        strip_path: false
+      - name: order-user
+        paths:
+          - /api/orders
+        methods:
+          - GET
+        strip_path: false
+      - name: order-detail
+        paths:
+          - /api/orders
+        methods:
+          - GET
+        strip_path: false
+      - name: order-cancel
+        paths:
+          - /api/orders
+        methods:
+          - PUT
+          - DELETE
+        strip_path: false
+
+  # ===========================================
+  # INVENTORY SERVICE
+  # ===========================================
+  - name: inventory-service
+    url: http://inventory-service:8084
+    routes:
+      - name: inventory-check
+        paths:
+          - /api/inventory
+        methods:
+          - GET
+        strip_path: false
+      - name: inventory-reserve
+        paths:
+          - /api/inventory/reserve
+        methods:
+          - POST
+        strip_path: false
+      - name: inventory-admin
+        paths:
+          - /api/inventory
+        methods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+        strip_path: false
+
+  # ===========================================
+  # PAYMENT SERVICE
+  # ===========================================
+  - name: payment-service
+    url: http://payment-service:8085
+    routes:
+      - name: payment-create
+        paths:
+          - /api/payments
+        methods:
+          - POST
+        strip_path: false
+      - name: payment-webhook
+        paths:
+          - /api/payments/webhook
+        methods:
+          - POST
+        strip_path: false
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 1000
+              hour: 10000
+      - name: payment-status
+        paths:
+          - /api/payments
+        methods:
+          - GET
+        strip_path: false
+
+  # ===========================================
+  # SEARCH SERVICE
+  # ===========================================
+  - name: search-service
+    url: http://search-service:8086
+    routes:
+      - name: search-products
+        paths:
+          - /api/search
+        methods:
+          - GET
+        strip_path: false
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 100
+              hour: 2000
+
+  # ===========================================
+  # NOTIFICATION SERVICE
+  # ===========================================
+  - name: notification-service
+    url: http://notification-service:8087
+    routes:
+      - name: notification-send
+        paths:
+          - /api/notifications
+        methods:
+          - POST
+        strip_path: false
+      - name: notification-templates
+        paths:
+          - /api/notifications/templates
+        methods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+
+  # ===========================================
+  # EUREKA SERVICE REGISTRY
+  # ===========================================
+  - name: eureka-server
+    url: http://eureka-server:8761
+    routes:
+      - name: eureka-api
+        paths:
+          - /eureka
+        strip_path: false
+
+  # ===========================================
+  # CONFIG SERVER
+  # ===========================================
+  - name: config-server
+    url: http://config-server:8888
+    routes:
+      - name: config-api
+        paths:
+          - /config
+        strip_path: false
+
+# ===========================================
+# GLOBAL PLUGINS
+# ===========================================
+plugins:
+  # ===========================================
+  # JWT VALIDATION (Applied to protected routes)
+  # ===========================================
+  - name: jwt
+    route: auth-login
+    config:
+      key_claim_name: kid
+
+  - name: jwt
+    route: auth-refresh
+    config:
+      key_claim_name: kid
+
+  - name: jwt
+    route: auth-validate
+    config:
+      key_claim_name: kid
+
+  - name: jwt
+    route: product-admin
+    config:
+      key_claim_name: kid
+      run_on_preflight: true
+
+  - name: jwt
+    route: order-create
+    config:
+      key_claim_name: kid
+      run_on_preflight: true
+
+  - name: jwt
+    route: order-user
+    config:
+      key_claim_name: kid
+      run_on_preflight: true
+
+  - name: jwt
+    route: order-detail
+    config:
+      key_claim_name: kid
+      run_on_preflight: true
+
+  - name: jwt
+    route: order-cancel
+    config:
+      key_claim_name: kid
+      run_on_preflight: true
+
+  - name: jwt
+    route: inventory-check
+    config:
+      key_claim_name: kid
+      run_on_preflight: true
+
+  - name: jwt
+    route: inventory-reserve
+    config:
+      key_claim_name: kid
+      run_on_preflight: true
+
+  - name: jwt
+    route: inventory-admin
+    config:
+      key_claim_name: kid
+      run_on_preflight: true
+
+  - name: jwt
+    route: payment-create
+    config:
+      key_claim_name: kid
+      run_on_preflight: true
+
+  - name: jwt
+    route: payment-status
+    config:
+      key_claim_name: kid
+      run_on_preflight: true
+
+  - name: jwt
+    route: notification-send
+    config:
+      key_claim_name: kid
+      run_on_preflight: true
+
+  - name: jwt
+    route: notification-templates
+    config:
+      key_claim_name: kid
+      run_on_preflight: true
+
+  # ===========================================
+  # REQUEST TRANSFORMER (Add Headers)
+  # ===========================================
+  - name: request-transformer
+    config:
+      add:
+        headers:
+          - "X-Gateway: Kong"
+          - "X-Request-ID: $(uuid)"
+
+  # ===========================================
+  # RESPONSE TRANSFORMER
+  # ===========================================
+  - name: response-transformer
+    config:
+      add:
+        headers:
+          - "X-Kong-Upstream-Latency: $(latency.request)"
+
+  # ===========================================
+  # CORSL
+  # ===========================================
+  - name: cors
+    config:
+      origins:
+        - "*"
+      methods:
+        - GET
+        - POST
+        - PUT
+        - DELETE
+        - PATCH
+        - OPTIONS
+      headers:
+        - Accept
+        - Authorization
+        - Content-Type
+        - X-Request-ID
+      credentials: true
+      max_age: 3600
+
+  # ===========================================
+  # HTTP LOG (ELK Integration)
+  # ===========================================
+  - name: http-log
+    config:
+      http_endpoint: http://logstash:5044
+      method: POST
+      content_type: application/json
+      timeout: 5000
+      keepalive: 60000
+      retry_count: 3
+      queue_size: 1000
+      flush_timeout: 2
+
+  # ===========================================
+  # PROMETHEUS METRICS
+  # ===========================================
+  - name: prometheus
+    config:
+      per_consumer: false
